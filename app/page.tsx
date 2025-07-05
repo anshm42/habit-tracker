@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ProtectedRoute } from "@/components/protected-route"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { useUser } from "@/contexts/user-context"
 import { createClient } from "@/lib/supabase/client"
 
@@ -48,6 +50,7 @@ const HABIT_COLORS = [
 
 function HabitTrackerApp() {
   const [habits, setHabits] = useState<Habit[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
@@ -81,6 +84,7 @@ function HabitTrackerApp() {
     }
 
     setHabits(data || [])
+    setIsLoading(false)
   }
 
   const createHabit = async () => {
@@ -224,24 +228,24 @@ function HabitTrackerApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Habit Tracker</h1>
-            <p className="text-gray-600 mt-1">Build better habits, one day at a time</p>
+            <h1 className="text-3xl font-bold text-foreground">Habit Tracker</h1>
+            <p className="text-muted-foreground mt-1">Build better habits, one day at a time</p>
           </div>
 
           <div className="flex items-center gap-4">
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="hover:scale-105 transition-transform duration-200 animate-fade-in">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Habit
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="animate-scale-in">
                 <DialogHeader>
                   <DialogTitle>Create New Habit</DialogTitle>
                   <DialogDescription>Add a new habit to track your daily progress.</DialogDescription>
@@ -285,44 +289,66 @@ function HabitTrackerApp() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsAddDialogOpen(false)}
+                    className="hover:scale-105 transition-transform duration-200"
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={createHabit}>Create Habit</Button>
+                  <Button 
+                    onClick={createHabit}
+                    className="hover:scale-105 transition-transform duration-200"
+                  >
+                    Create Habit
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
+            <ThemeToggle />
 
-            <Button variant="outline" onClick={signOut}>
+            <Button 
+              variant="outline" 
+              onClick={signOut}
+              className="hover:scale-105 transition-transform duration-200 animate-fade-in"
+              style={{ animationDelay: '0.1s' }}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        )}
+
         {/* Stats Overview */}
-        {habits.length > 0 && (
+        {!isLoading && habits.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Card>
+            <Card className="animate-fade-in hover:scale-105 transition-transform duration-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Total Habits</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Habits</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{habits.length}</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="animate-fade-in hover:scale-105 transition-transform duration-200" style={{ animationDelay: '0.1s' }}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Completed Today</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Completed Today</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{habits.filter(isCompletedToday).length}</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="animate-fade-in hover:scale-105 transition-transform duration-200" style={{ animationDelay: '0.2s' }}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Best Streak</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Best Streak</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{Math.max(...habits.map((h) => h.streak), 0)} days</div>
@@ -332,101 +358,110 @@ function HabitTrackerApp() {
         )}
 
         {/* Habits Grid */}
-        {habits.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No habits yet</h3>
-              <p className="text-gray-600 mb-4">Create your first habit to start tracking your progress.</p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Habit
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {habits.map((habit) => (
-              <Card key={habit.id} className="relative">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${habit.color}`} />
-                      <div>
-                        <CardTitle className="text-lg">{habit.name}</CardTitle>
-                        {habit.description && <CardDescription className="mt-1">{habit.description}</CardDescription>}
+        {!isLoading && (
+          habits.length === 0 ? (
+            <Card className="text-center py-12 animate-bounce-in">
+              <CardContent>
+                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-float" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No habits yet</h3>
+                <p className="text-muted-foreground mb-4">Create your first habit to start tracking your progress.</p>
+                <Button 
+                  onClick={() => setIsAddDialogOpen(true)}
+                  className="hover:scale-105 transition-transform duration-200"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Habit
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {habits.map((habit, index) => (
+                <Card 
+                  key={habit.id} 
+                  className="relative animate-fade-in hover:scale-105 transition-all duration-300 hover:shadow-lg"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${habit.color} animate-pulse-glow`} />
+                        <div>
+                          <CardTitle className="text-lg">{habit.name}</CardTitle>
+                          {habit.description && <CardDescription className="mt-1">{habit.description}</CardDescription>}
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:scale-110 transition-transform duration-200"
+                          onClick={() => {
+                            setEditingHabit(habit)
+                            setIsEditDialogOpen(true)
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:scale-110 transition-transform duration-200"
+                          onClick={() => deleteHabit(habit.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setEditingHabit(habit)
-                          setIsEditDialogOpen(true)
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-700"
-                        onClick={() => deleteHabit(habit.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {habit.frequency}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">{habit.streak} day streak</span>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {habit.frequency}
-                      </Badge>
-                      <span className="text-sm text-gray-600">{habit.streak} day streak</span>
-                    </div>
-                  </div>
 
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Completion Rate</span>
-                      <span>{getCompletionRate(habit)}%</span>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Completion Rate</span>
+                        <span>{getCompletionRate(habit)}%</span>
+                      </div>
+                      <Progress value={getCompletionRate(habit)} className="h-2" />
                     </div>
-                    <Progress value={getCompletionRate(habit)} className="h-2" />
-                  </div>
 
-                  <Button
-                    onClick={() => toggleCompletion(habit.id)}
-                    className={`w-full ${
-                      isCompletedToday(habit)
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {isCompletedToday(habit) ? (
-                      <>
-                        <Check className="w-4 h-4 mr-2" />
-                        Completed Today
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4 mr-2" />
-                        Mark Complete
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <Button
+                      onClick={() => toggleCompletion(habit.id)}
+                      className={`w-full transition-all duration-300 ${
+                        isCompletedToday(habit)
+                          ? "bg-green-600 hover:bg-green-700 animate-pulse-glow"
+                          : "bg-secondary hover:bg-secondary/80 text-secondary-foreground hover:scale-105"
+                      }`}
+                    >
+                      {isCompletedToday(habit) ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Completed Today
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-4 h-4 mr-2" />
+                          Mark Complete
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
         )}
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="animate-scale-in">
             <DialogHeader>
               <DialogTitle>Edit Habit</DialogTitle>
               <DialogDescription>Update your habit details.</DialogDescription>
@@ -472,10 +507,19 @@ function HabitTrackerApp() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+                className="hover:scale-105 transition-transform duration-200"
+              >
                 Cancel
               </Button>
-              <Button onClick={updateHabit}>Save Changes</Button>
+              <Button 
+                onClick={updateHabit}
+                className="hover:scale-105 transition-transform duration-200"
+              >
+                Save Changes
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
