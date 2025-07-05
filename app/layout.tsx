@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { UserProvider } from '@/contexts/user-context'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Habit Tracker',
+  description: 'Build better habits, one day at a time',
   generator: 'v0.dev',
 }
 
@@ -14,7 +16,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <UserProvider>
+          {children}
+          <Toaster />
+        </UserProvider>
+      </body>
     </html>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Calendar, Trash2, Edit, Check, X } from "lucide-react"
+import { Plus, Calendar, Trash2, Edit, Check, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -19,6 +19,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useUser } from "@/contexts/user-context"
+import { createClient } from "@/lib/supabase/client"
 
 interface Habit {
   id: string
@@ -29,6 +32,7 @@ interface Habit {
   completions: string[] // Array of completion dates (YYYY-MM-DD)
   streak: number
   color: string
+  user_id: string
 }
 
 const HABIT_COLORS = [
@@ -42,7 +46,7 @@ const HABIT_COLORS = [
   "bg-red-500",
 ]
 
-export default function HabitTracker() {
+function HabitTrackerApp() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -50,27 +54,39 @@ export default function HabitTracker() {
   const [newHabit, setNewHabit] = useState({
     name: "",
     description: "",
-    frequency: "daily" as const,
+    frequency: "daily" as "daily" | "weekly" | "monthly",
   })
+  const { user, signOut } = useUser()
+  const supabase = createClient()
 
-  // Load habits from localStorage on mount
+  // Load habits from Supabase on mount
   useEffect(() => {
-    const savedHabits = localStorage.getItem("habits")
-    if (savedHabits) {
-      setHabits(JSON.parse(savedHabits))
+    if (user) {
+      loadHabits()
     }
-  }, [])
+  }, [user])
 
-  // Save habits to localStorage whenever habits change
-  useEffect(() => {
-    localStorage.setItem("habits", JSON.stringify(habits))
-  }, [habits])
+  const loadHabits = async () => {
+    if (!user) return
 
-  const createHabit = () => {
-    if (!newHabit.name.trim()) return
+    const { data, error } = await supabase
+      .from('habits')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
-    const habit: Habit = {
-      id: Date.now().toString(),
+    if (error) {
+      console.error('Error loading habits:', error)
+      return
+    }
+
+    setHabits(data || [])
+  }
+
+  const createHabit = async () => {
+    if (!newHabit.name.trim() || !user) return
+
+    const habit: Omit<Habit, 'id'> = {
       name: newHabit.name,
       description: newHabit.description,
       frequency: newHabit.frequency,
@@ -78,47 +94,97 @@ export default function HabitTracker() {
       completions: [],
       streak: 0,
       color: HABIT_COLORS[Math.floor(Math.random() * HABIT_COLORS.length)],
+      user_id: user.id,
     }
 
-    setHabits((prev) => [...prev, habit])
+    const { data, error } = await supabase
+      .from('habits')
+      .insert([habit])
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating habit:', error)
+      return
+    }
+
+    setHabits((prev) => [data, ...prev])
     setNewHabit({ name: "", description: "", frequency: "daily" })
     setIsAddDialogOpen(false)
   }
 
-  const updateHabit = () => {
+  const updateHabit = async () => {
     if (!editingHabit || !editingHabit.name.trim()) return
+
+    const { error } = await supabase
+      .from('habits')
+      .update({
+        name: editingHabit.name,
+        description: editingHabit.description,
+        frequency: editingHabit.frequency,
+      })
+      .eq('id', editingHabit.id)
+      .eq('user_id', user?.id)
+
+    if (error) {
+      console.error('Error updating habit:', error)
+      return
+    }
 
     setHabits((prev) => prev.map((habit) => (habit.id === editingHabit.id ? editingHabit : habit)))
     setEditingHabit(null)
     setIsEditDialogOpen(false)
   }
 
-  const deleteHabit = (id: string) => {
+  const deleteHabit = async (id: string) => {
+    const { error } = await supabase
+      .from('habits')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user?.id)
+
+    if (error) {
+      console.error('Error deleting habit:', error)
+      return
+    }
+
     setHabits((prev) => prev.filter((habit) => habit.id !== id))
   }
 
-  const toggleCompletion = (habitId: string) => {
+  const toggleCompletion = async (habitId: string) => {
     const today = new Date().toISOString().split("T")[0]
+    const habit = habits.find(h => h.id === habitId)
+    if (!habit) return
+
+    const completions = [...habit.completions]
+    const todayIndex = completions.indexOf(today)
+
+    if (todayIndex > -1) {
+      // Remove completion
+      completions.splice(todayIndex, 1)
+    } else {
+      // Add completion
+      completions.push(today)
+      completions.sort()
+    }
+
+    // Calculate streak
+    const streak = calculateStreak(completions)
+
+    const { error } = await supabase
+      .from('habits')
+      .update({ completions, streak })
+      .eq('id', habitId)
+      .eq('user_id', user?.id)
+
+    if (error) {
+      console.error('Error updating completion:', error)
+      return
+    }
 
     setHabits((prev) =>
       prev.map((habit) => {
         if (habit.id !== habitId) return habit
-
-        const completions = [...habit.completions]
-        const todayIndex = completions.indexOf(today)
-
-        if (todayIndex > -1) {
-          // Remove completion
-          completions.splice(todayIndex, 1)
-        } else {
-          // Add completion
-          completions.push(today)
-          completions.sort()
-        }
-
-        // Calculate streak
-        const streak = calculateStreak(completions)
-
         return { ...habit, completions, streak }
       }),
     )
@@ -167,64 +233,71 @@ export default function HabitTracker() {
             <p className="text-gray-600 mt-1">Build better habits, one day at a time</p>
           </div>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Habit
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Habit</DialogTitle>
-                <DialogDescription>Add a new habit to track your daily progress.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Habit Name</Label>
-                  <Input
-                    id="name"
-                    value={newHabit.name}
-                    onChange={(e) => setNewHabit((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g., Drink 8 glasses of water"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description (Optional)</Label>
-                  <Textarea
-                    id="description"
-                    value={newHabit.description}
-                    onChange={(e) => setNewHabit((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Why is this habit important to you?"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="frequency">Frequency</Label>
-                  <Select
-                    value={newHabit.frequency}
-                    onValueChange={(value: "daily" | "weekly" | "monthly") =>
-                      setNewHabit((prev) => ({ ...prev, frequency: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
+          <div className="flex items-center gap-4">
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Habit
                 </Button>
-                <Button onClick={createHabit}>Create Habit</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Habit</DialogTitle>
+                  <DialogDescription>Add a new habit to track your daily progress.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Habit Name</Label>
+                    <Input
+                      id="name"
+                      value={newHabit.name}
+                      onChange={(e) => setNewHabit((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g., Drink 8 glasses of water"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description (Optional)</Label>
+                    <Textarea
+                      id="description"
+                      value={newHabit.description}
+                      onChange={(e) => setNewHabit((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Why is this habit important to you?"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="frequency">Frequency</Label>
+                    <Select
+                      value={newHabit.frequency}
+                      onValueChange={(value: "daily" | "weekly" | "monthly") =>
+                        setNewHabit((prev) => ({ ...prev, frequency: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={createHabit}>Create Habit</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" onClick={signOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {/* Stats Overview */}
@@ -407,5 +480,13 @@ export default function HabitTracker() {
         </Dialog>
       </div>
     </div>
+  )
+}
+
+export default function HabitTracker() {
+  return (
+    <ProtectedRoute>
+      <HabitTrackerApp />
+    </ProtectedRoute>
   )
 }
