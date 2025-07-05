@@ -233,8 +233,8 @@ function HabitTrackerApp() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Habit Tracker</h1>
-            <p className="text-muted-foreground mt-1">Build better habits, one day at a time</p>
+            <h1 className="text-3xl font-bold text-foreground">the 1% rule</h1>
+            <p className="text-muted-foreground mt-1">small improvements, big results</p>
           </div>
 
           <div className="flex items-center gap-4">

@@ -133,22 +133,22 @@ export function AuthForm() {
   const getTitle = () => {
     switch (mode) {
       case "signup":
-        return "Create your account"
+        return "Create your account for the 1% rule"
       case "forgot-password":
         return "Reset your password"
       default:
-        return "Sign in to your account"
+        return "Sign in to the 1% rule"
     }
   }
 
   const getDescription = () => {
     switch (mode) {
       case "signup":
-        return "Create your account to start tracking habits"
+        return "Create your account to start your 1% journey"
       case "forgot-password":
         return "Enter your email to receive a password reset link"
       default:
-        return "Welcome back! Sign in to continue"
+        return "Welcome back to the 1% rule! Sign in to continue"
     }
   }
 
@@ -170,7 +170,7 @@ export function AuthForm() {
               Back
             </Button>
           )}
-          <CardTitle className="text-2xl">Habit Tracker</CardTitle>
+          <CardTitle className="text-2xl">the 1% rule</CardTitle>
           <CardDescription>{getTitle()}</CardDescription>
         </CardHeader>
         <CardContent>

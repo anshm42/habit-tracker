@@ -5,8 +5,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'Habit Tracker',
-  description: 'Build better habits, one day at a time',
+  title: 'the 1% rule',
+  description: 'the 1% rule',
   generator: 'v0.dev',
 }
 
