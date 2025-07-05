@@ -28,7 +28,7 @@ interface Habit {
   name: string
   description: string
   frequency: "daily" | "weekly" | "monthly"
-  createdAt: string
+  created_at: string
   completions: string[] // Array of completion dates (YYYY-MM-DD)
   streak: number
   color: string
@@ -90,7 +90,7 @@ function HabitTrackerApp() {
       name: newHabit.name,
       description: newHabit.description,
       frequency: newHabit.frequency,
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       completions: [],
       streak: 0,
       color: HABIT_COLORS[Math.floor(Math.random() * HABIT_COLORS.length)],
@@ -219,7 +219,7 @@ function HabitTrackerApp() {
   }
 
   const getCompletionRate = (habit: Habit): number => {
-    const daysSinceCreated = Math.floor((Date.now() - new Date(habit.createdAt).getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const daysSinceCreated = Math.floor((Date.now() - new Date(habit.created_at).getTime()) / (1000 * 60 * 60 * 24)) + 1
     return Math.round((habit.completions.length / daysSinceCreated) * 100)
   }
 
@@ -292,6 +292,7 @@ function HabitTrackerApp() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
 
             <Button variant="outline" onClick={signOut}>
               <LogOut className="w-4 h-4 mr-2" />
