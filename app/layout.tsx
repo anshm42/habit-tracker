@@ -6,7 +6,7 @@ import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: 'the 1% rule',
-  description: 'the 1% rule',
+  description: 'small improvements, big results - track your daily habits and build lasting change',
   generator: 'v0.dev',
 }
 

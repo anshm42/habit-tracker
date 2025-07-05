@@ -46,3 +46,29 @@ CREATE TRIGGER update_habits_updated_at
   BEFORE UPDATE ON habits
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column(); 
+
+-- Update habits table to include notification settings
+ALTER TABLE habits 
+ADD COLUMN notification_enabled BOOLEAN DEFAULT false,
+ADD COLUMN notification_time TIME DEFAULT '09:00:00',
+ADD COLUMN notification_days TEXT[] DEFAULT NULL;
+
+-- Add comment to explain the notification_days column
+COMMENT ON COLUMN habits.notification_days IS 'Array of days for weekly notifications (e.g., ["monday", "wednesday", "friday"])';
+
+-- Update RLS policies to include new columns
+DROP POLICY IF EXISTS "Users can view own habits" ON habits;
+CREATE POLICY "Users can view own habits" ON habits
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own habits" ON habits;
+CREATE POLICY "Users can insert own habits" ON habits
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own habits" ON habits;
+CREATE POLICY "Users can update own habits" ON habits
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own habits" ON habits;
+CREATE POLICY "Users can delete own habits" ON habits
+  FOR DELETE USING (auth.uid() = user_id); 

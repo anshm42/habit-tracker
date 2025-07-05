@@ -20,6 +20,7 @@ export default function GlobalError({
       <body>
         <div className="flex items-center justify-center min-h-screen bg-background p-4">
           <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold text-foreground">the 1% rule</h1>
             <h2 className="text-2xl font-bold text-foreground">Something went wrong!</h2>
             <p className="text-muted-foreground">
               {error.message || 'An unexpected error occurred'}

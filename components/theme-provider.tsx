@@ -18,7 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setMounted(true)
-    const savedTheme = localStorage.getItem('habit-tracker-theme') as Theme
+    const savedTheme = localStorage.getItem('the-1-percent-rule-theme') as Theme
     if (savedTheme) {
       setTheme(savedTheme)
     }
@@ -41,7 +41,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.add(theme)
     }
 
-    localStorage.setItem('habit-tracker-theme', theme)
+    localStorage.setItem('the-1-percent-rule-theme', theme)
   }, [theme, mounted])
 
   // Listen for system theme changes

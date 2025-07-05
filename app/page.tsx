@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Calendar, Trash2, Edit, Check, X, LogOut } from "lucide-react"
+import { Plus, Calendar, Trash2, Edit, Check, X, LogOut, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -22,8 +22,11 @@ import { Progress } from "@/components/ui/progress"
 import { ProtectedRoute } from "@/components/protected-route"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { NotificationSettings } from "@/components/notification-settings"
+import { NotificationPermission } from "@/components/notification-permission"
 import { useUser } from "@/contexts/user-context"
 import { createClient } from "@/lib/supabase/client"
+import { notificationService, NotificationSettings as NotificationSettingsType } from "@/lib/notifications"
 
 interface Habit {
   id: string
@@ -35,6 +38,9 @@ interface Habit {
   streak: number
   color: string
   user_id: string
+  notification_enabled: boolean
+  notification_time: string
+  notification_days: string[] | null
 }
 
 const HABIT_COLORS = [
@@ -58,6 +64,9 @@ function HabitTrackerApp() {
     name: "",
     description: "",
     frequency: "daily" as "daily" | "weekly" | "monthly",
+    notification_enabled: false,
+    notification_time: "09:00",
+    notification_days: [] as string[],
   })
   const { user, signOut } = useUser()
   const supabase = createClient()
@@ -66,8 +75,17 @@ function HabitTrackerApp() {
   useEffect(() => {
     if (user) {
       loadHabits()
+      // Request notification permission
+      notificationService.requestPermission()
     }
   }, [user])
+
+  // Clear notifications on unmount
+  useEffect(() => {
+    return () => {
+      notificationService.clearAll()
+    }
+  }, [])
 
   const loadHabits = async () => {
     if (!user) return
@@ -84,6 +102,21 @@ function HabitTrackerApp() {
     }
 
     setHabits(data || [])
+    
+    // Schedule notifications for habits that have them enabled
+    if (data) {
+      for (const habit of data) {
+        if (habit.notification_enabled) {
+          const settings: NotificationSettingsType = {
+            enabled: habit.notification_enabled,
+            time: habit.notification_time,
+            days: habit.notification_days || undefined,
+          }
+          await notificationService.scheduleNotification(habit.id, habit.name, settings)
+        }
+      }
+    }
+    
     setIsLoading(false)
   }
 
@@ -99,6 +132,9 @@ function HabitTrackerApp() {
       streak: 0,
       color: HABIT_COLORS[Math.floor(Math.random() * HABIT_COLORS.length)],
       user_id: user.id,
+      notification_enabled: newHabit.notification_enabled,
+      notification_time: newHabit.notification_time,
+      notification_days: newHabit.notification_days.length > 0 ? newHabit.notification_days : null,
     }
 
     const { data, error } = await supabase
@@ -113,7 +149,25 @@ function HabitTrackerApp() {
     }
 
     setHabits((prev) => [data, ...prev])
-    setNewHabit({ name: "", description: "", frequency: "daily" })
+    
+    // Schedule notification if enabled
+    if (data.notification_enabled) {
+      const settings: NotificationSettingsType = {
+        enabled: data.notification_enabled,
+        time: data.notification_time,
+        days: data.notification_days || undefined,
+      }
+      await notificationService.scheduleNotification(data.id, data.name, settings)
+    }
+    
+    setNewHabit({ 
+      name: "", 
+      description: "", 
+      frequency: "daily",
+      notification_enabled: false,
+      notification_time: "09:00",
+      notification_days: [],
+    })
     setIsAddDialogOpen(false)
   }
 
@@ -126,6 +180,9 @@ function HabitTrackerApp() {
         name: editingHabit.name,
         description: editingHabit.description,
         frequency: editingHabit.frequency,
+        notification_enabled: editingHabit.notification_enabled,
+        notification_time: editingHabit.notification_time,
+        notification_days: editingHabit.notification_days,
       })
       .eq('id', editingHabit.id)
       .eq('user_id', user?.id)
@@ -134,6 +191,14 @@ function HabitTrackerApp() {
       console.error('Error updating habit:', error)
       return
     }
+
+    // Update notification scheduling
+    const settings: NotificationSettingsType = {
+      enabled: editingHabit.notification_enabled,
+      time: editingHabit.notification_time,
+      days: editingHabit.notification_days || undefined,
+    }
+    await notificationService.scheduleNotification(editingHabit.id, editingHabit.name, settings)
 
     setHabits((prev) => prev.map((habit) => (habit.id === editingHabit.id ? editingHabit : habit)))
     setEditingHabit(null)
@@ -151,6 +216,9 @@ function HabitTrackerApp() {
       console.error('Error deleting habit:', error)
       return
     }
+
+    // Remove notification for this habit
+    notificationService.removeNotification(id)
 
     setHabits((prev) => prev.filter((habit) => habit.id !== id))
   }
@@ -287,6 +355,18 @@ function HabitTrackerApp() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="grid gap-2">
+                    <NotificationSettings
+                      enabled={newHabit.notification_enabled}
+                      time={newHabit.notification_time}
+                      days={newHabit.notification_days}
+                      frequency={newHabit.frequency}
+                      onSettingsChange={(settings) => 
+                        setNewHabit((prev) => ({ ...prev, ...settings }))
+                      }
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button 
@@ -421,6 +501,11 @@ function HabitTrackerApp() {
                           {habit.frequency}
                         </Badge>
                         <span className="text-sm text-muted-foreground">{habit.streak} day streak</span>
+                        {habit.notification_enabled && (
+                          <div title="Notifications enabled">
+                            <Bell className="w-3 h-3 text-blue-500" />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -504,6 +589,18 @@ function HabitTrackerApp() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                <div className="grid gap-2">
+                  <NotificationSettings
+                    enabled={editingHabit.notification_enabled}
+                    time={editingHabit.notification_time}
+                    days={editingHabit.notification_days || []}
+                    frequency={editingHabit.frequency}
+                    onSettingsChange={(settings) => 
+                      setEditingHabit((prev) => (prev ? { ...prev, ...settings } : null))
+                    }
+                  />
+                </div>
               </div>
             )}
             <DialogFooter>
@@ -523,6 +620,9 @@ function HabitTrackerApp() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Notification Permission Banner */}
+        <NotificationPermission />
       </div>
     </div>
   )
